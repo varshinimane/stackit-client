@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "stackit-client"
+  },
+  "targets": {},
+  "etags": {}
+}

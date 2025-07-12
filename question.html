@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StackIt – Question</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="max-w-4xl mx-auto p-4">
+    <div id="questionContainer" class="mb-6 p-4 bg-gray-800 rounded shadow"></div>
+
+    <h3 class="text-lg font-semibold mb-2">Answers</h3>
+    <div id="answersList" class="space-y-4 mb-6"></div>
+
+    <div id="answerForm" class="bg-gray-800 p-4 rounded hidden">
+      <textarea id="answerInput" class="w-full p-2 bg-gray-700 text-white rounded mb-2" placeholder="Write your answer here..."></textarea>
+      <button onclick="submitAnswer()" class="bg-blue-600 px-4 py-1 rounded hover:bg-blue-700">Submit Answer</button>
+    </div>
+
+    <p id="loginPrompt" class="text-sm text-gray-400">Please login to submit an answer.</p>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBB4ZfrDFm__Y4JzMfoFzsL5kw5GlR8ZCo",
+      authDomain: "stackit-client.firebaseapp.com",
+      projectId: "stackit-client",
+      storageBucket: "stackit-client.appspot.com",
+      messagingSenderId: "1080432518234",
+      appId: "1:1080432518234:web:674d4239ea72c811f32463",
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const questionId = new URLSearchParams(window.location.search).get("id");
+    const questionContainer = document.getElementById("questionContainer");
+    const answersList = document.getElementById("answersList");
+    const answerForm = document.getElementById("answerForm");
+    const loginPrompt = document.getElementById("loginPrompt");
+
+    let currentUser = null;
+    let questionData = null;
+
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      if (user) {
+        answerForm.classList.remove("hidden");
+        loginPrompt.classList.add("hidden");
+      } else {
+        answerForm.classList.add("hidden");
+        loginPrompt.classList.remove("hidden");
+      }
+    });
+
+    function loadQuestion() {
+      db.collection("questions").doc(questionId).get().then(doc => {
+        if (!doc.exists) return;
+        questionData = doc.data();
+        const q = questionData;
+        questionContainer.innerHTML = `
+          <h1 class="text-2xl font-bold text-indigo-400 mb-2">${q.title}</h1>
+          <p class="text-sm text-gray-300 mb-2">${q.description || ''}</p>
+          <div class="text-xs text-gray-400 mb-2">
+            ${q.tags?.map(tag => `<span class="bg-gray-700 px-2 py-1 rounded">${tag}</span>`).join(' ')}
+            <span>by ${q.userEmail || 'Anonymous'}</span>
+          </div>
+        `;
+        loadAnswers();
+      });
+    }
+
+    function loadAnswers() {
+      db.collection("answers")
+        .where("questionId", "==", questionId)
+        .orderBy("createdAt", "asc")
+        .get()
+        .then(snapshot => {
+          answersList.innerHTML = "";
+          snapshot.forEach(doc => {
+            const a = doc.data();
+            const isAccepted = questionData.acceptedAnswerId === doc.id;
+            const acceptedBadge = isAccepted ? `<span class="text-green-500 font-bold ml-2">✔ Accepted</span>` : "";
+            const acceptBtn = currentUser?.uid === questionData.userId && !isAccepted
+              ? `<button onclick="acceptAnswer('${doc.id}')" class="text-sm text-yellow-400 ml-4 underline">Accept</button>`
+              : "";
+
+            // Load vote count for answer
+            db.collection("answerVotes")
+              .where("answerId", "==", doc.id)
+              .get()
+              .then(votesSnap => {
+                let voteCount = 0;
+                votesSnap.forEach(v => voteCount += v.data().value);
+
+                answersList.innerHTML += `
+                  <div class="bg-gray-800 p-4 rounded shadow">
+                    <p class="text-sm mb-2">${a.text}</p>
+                    <div class="text-xs text-gray-400 mb-2">
+                      <span>by ${a.userEmail || "Anonymous"}</span>
+                      ${acceptedBadge}
+                      ${acceptBtn}
+                    </div>
+                    <div class="mt-2 flex items-center gap-3 text-sm">
+                      <button onclick="voteAnswer('${doc.id}', 1)" class="bg-green-600 px-2 py-1 rounded">⬆</button>
+                      <span>${voteCount}</span>
+                      <button onclick="voteAnswer('${doc.id}', -1)" class="bg-red-600 px-2 py-1 rounded">⬇</button>
+                    </div>
+                  </div>
+                `;
+              });
+          });
+        });
+    }
+
+    function submitAnswer() {
+      const text = document.getElementById("answerInput").value.trim();
+      if (!currentUser) return alert("Please login to answer.");
+      if (!text) return alert("Answer cannot be empty.");
+
+      db.collection("answers").add({
+        text,
+        questionId,
+        userId: currentUser.uid,
+        userEmail: currentUser.email,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        document.getElementById("answerInput").value = "";
+        sendNotification(questionData.userId, `${currentUser.email} answered your question`);
+        loadAnswers();
+      });
+    }
+
+    function acceptAnswer(answerId) {
+      if (!confirm("Mark this as the accepted answer?")) return;
+      db.collection("questions").doc(questionId).update({
+        acceptedAnswerId: answerId
+      }).then(() => {
+        loadQuestion(); // reload question and answers
+      });
+    }
+
+    function voteAnswer(answerId, value) {
+      if (!currentUser) return alert("Login to vote.");
+      const voteRef = db.collection("answerVotes").doc(`${answerId}_${currentUser.uid}`);
+      voteRef.get().then(doc => {
+        if (doc.exists) {
+          alert("You've already voted on this answer.");
+        } else {
+          voteRef.set({
+            answerId,
+            userId: currentUser.uid,
+            value,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          // Send notification to answer author
+          db.collection("answers").doc(answerId).get().then(answerDoc => {
+            const answerData = answerDoc.data();
+            if (answerData && answerData.userId && currentUser.uid !== answerData.userId) {
+              sendNotification(answerData.userId, `${currentUser.email} ${value > 0 ? "upvoted" : "downvoted"} your answer`);
+            }
+          });
+          loadAnswers();
+        }
+      });
+    }
+
+    function sendNotification(userId, message) {
+      db.collection("users").doc(userId).collection("notifications").add({
+        message,
+        isRead: false,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    loadQuestion();
+  </script>
+</body>
+</html>

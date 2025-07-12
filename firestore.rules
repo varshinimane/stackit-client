@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read all questions
+    match /questions/{questionId} {
+      allow read: if true;
+
+      // Only logged-in users can post questions
+      allow create: if request.auth != null;
+
+      // Only the user who posted the question can update it (e.g. to accept answer)
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Answers collection
+    match /answers/{answerId} {
+      allow read: if true;
+
+      // Only logged-in users can submit answers
+      allow create: if request.auth != null;
+
+      // Only the answer owner can update/delete their answer
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+
+      // Optional: Disallow manual votes (vote via backend logic only)
+    }
+
+    // Optional: Users collection (if needed for profiles)
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

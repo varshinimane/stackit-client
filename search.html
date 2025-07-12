@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Search – StackIt</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white p-6">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold mb-4">Search Questions</h1>
+
+    <div class="flex flex-col md:flex-row gap-2 mb-6">
+      <input id="searchInput" type="text" placeholder="Search by title..."
+             class="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"/>
+      <select id="tagFilter" class="w-full md:w-40 p-2 rounded bg-gray-800 text-white border border-gray-700">
+        <option value="">All Tags</option>
+        <option value="React">React</option>
+        <option value="JWT">JWT</option>
+        <option value="Firebase">Firebase</option>
+        <option value="CSS">CSS</option>
+      </select>
+      <button onclick="performSearch()" class="bg-indigo-600 px-4 py-2 rounded hover:bg-indigo-700">Search</button>
+    </div>
+
+    <div id="resultsContainer" class="space-y-4"></div>
+
+    <div class="mt-6 flex justify-between">
+      <button onclick="prevPage()" class="bg-gray-700 px-3 py-1 rounded">Prev</button>
+      <button onclick="nextPage()" class="bg-gray-700 px-3 py-1 rounded">Next</button>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+  apiKey: "AIzaSyBB4ZfrDFm__Y4JzMfoFzsL5kw5GlR8ZCo",
+  authDomain: "stackit-client.firebaseapp.com",
+  projectId: "stackit-client",
+  storageBucket: "stackit-client.appspot.com",
+  messagingSenderId: "1080432518234",
+  appId: "1:1080432518234:web:674d4239ea72c811f32463",
+  measurementId: "G-W8DNFQNTXG"
+};
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let lastVisible = null;
+    let firstVisible = null;
+    let currentQuery = null;
+
+    function performSearch() {
+      const search = document.getElementById("searchInput").value.toLowerCase();
+      const tag = document.getElementById("tagFilter").value;
+
+      let query = db.collection("questions").orderBy("createdAt", "desc").limit(5);
+      currentQuery = { search, tag };
+
+      query.get().then(snapshot => {
+        displayResults(snapshot, search, tag);
+      });
+    }
+
+    function displayResults(snapshot, search, tag) {
+      const container = document.getElementById("resultsContainer");
+      container.innerHTML = "";
+
+      const filteredDocs = snapshot.docs.filter(doc => {
+        const data = doc.data();
+        const matchesSearch = !search || data.title.toLowerCase().includes(search);
+        const matchesTag = !tag || data.tags.includes(tag);
+        return matchesSearch && matchesTag;
+      });
+
+      if (filteredDocs.length === 0) {
+        container.innerHTML = "<p class='text-gray-400'>No results found.</p>";
+        return;
+      }
+
+      filteredDocs.forEach(doc => {
+        const q = doc.data();
+        const div = document.createElement("div");
+        div.className = "bg-gray-800 p-4 rounded border border-gray-700";
+
+        div.innerHTML = `
+          <h2 class="text-xl font-semibold text-indigo-400 cursor-pointer" onclick="location.href='question.html?id=${doc.id}'">${q.title}</h2>
+          <p class="text-sm text-gray-300 mt-1">${q.excerpt || ''}</p>
+          <div class="mt-2 text-xs text-gray-400 flex flex-wrap gap-2">
+            ${q.tags.map(tag => `<span class="bg-gray-700 px-2 py-1 rounded">${tag}</span>`).join('')}
+            <span>by <strong>${q.userEmail || 'Anonymous'}</strong></span>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      firstVisible = snapshot.docs[0];
+      lastVisible = snapshot.docs[snapshot.docs.length - 1];
+    }
+
+    function nextPage() {
+      const { search, tag } = currentQuery || {};
+      let query = db.collection("questions").orderBy("createdAt", "desc").startAfter(lastVisible).limit(5);
+      query.get().then(snapshot => displayResults(snapshot, search, tag));
+    }
+
+    function prevPage() {
+      // Placeholder: implement proper pagination stack if needed
+      alert("Simple prev pagination not supported in this version.");
+    }
+
+    window.onload = performSearch;
+  </script>
+</body>
+</html>
