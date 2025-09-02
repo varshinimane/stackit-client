@@ -1,17 +1,34 @@
-**Video Link** - https://drive.google.com/file/d/1F5q3qEZCm2ltKysm3EUcoDr52Tzoj98j/view?usp=sharing
-
 
 **website link** - https://stackit-client.web.app/   (compatible with mobile)
 
+**StackIt**
 
-# Problem Statement - StackIt
+StackIt is a Firebase-powered Q&A platform inspired by StackOverflow. It allows users to ask questions, submit answers, vote on answers, accept solutions, and receive real-time notifications. Admins can moderate content and manage users.
 
-# Team Name - NexAgent
+**Features**
 
-# Team Lead - Madduri Sowjanya, Mail - maddurisowjanya10@gmail.com
-# Member 1 - Mane Varshini, Mail - varshinimane.work@gmail.com
-# Member 2 - Malleshwaram Keerthana, Mail - mallis.keerthana24@gmail.com
-# Member 3 - Maligireddy Anitha, Mail - anithamaligireddy20@gmail.com
+User Authentication: Firebase-based login and registration.
 
+Ask Questions: Users can post rich-text questions with tags.
+
+Answer Questions: Submit answers using a rich text editor (Quill.js).
+
+Voting System: Upvote or downvote questions and answers (one vote per user).
+
+Answer Acceptance: Question owners can accept answers.
+
+Filtering & Search: Filter questions by tags, answered/unanswered status, and search keywords.
+
+Pagination: Navigate large lists of questions easily.
+
+Rich Text Editor: Supports images, emojis, formatting, hyperlinks, and alignment.
+
+**Tech Stack**
+
+Frontend: HTML, CSS, JavaScript, Quill.js
+
+Backend / Database: Firebase Authentication, Firestore, Firebase Hosting
+
+Hosting: Firebase Hosting
 
 
